@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lonely Creature's Quest</title>
+    <link href="https://fonts.googleapis.com/css2?family=Indie+Flower&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { /* ... same ... */ }
+        #game-container { /* ... same ... */ }
+        #gameCanvas { /* ... same ... */ }
+        .ui-panel { /* ... same ... */ }
+        .ui-panel p { /* ... same ... */ }
+        .controls { /* ... same ... */ }
+        .canvas-ui-text { /* ... same ... */ }
+        #canvas-score { /* ... same ... */ }
+        #canvas-time { /* ... same ... */ }
+        #canvas-boost { /* ... same ... */ }
+        #interaction-text { /* ... same ... */ }
+
+        /* Game Over Overlay Screen */
+        #game-over-screen {
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            background-color: rgba(20, 20, 20, 0.9); /* Slightly more opaque */
+            color: #d8d8c8; padding: 20px; /* Adjusted padding */
+            border-radius: 5px; font-size: 1.1em; /* Adjusted font size */
+            text-align: center; display: none; z-index: 20;
+            flex-direction: column; justify-content: center; align-items: center;
+            overflow-y: auto;
+        }
+         #game-over-screen h2 { font-size: 2.3em; color: #ff4500; margin-bottom: 10px; }
+         #game-over-screen p { font-size: 1.1em; margin-bottom: 15px; }
+
+         /* Name Input Section (Initially Hidden) */
+         #name-entry-section {
+             margin: 15px 0;
+             display: none; /* Hidden by default */
+         }
+         #name-entry-section label {
+             margin-right: 10px;
+             font-size: 1.1em;
+         }
+         #name-entry-section input[type="text"] {
+             width: 100px;
+             padding: 5px 8px;
+             font-family: 'Indie Flower', cursive;
+             font-size: 1.1em;
+             text-transform: uppercase; /* Force uppercase */
+             background-color: #ddd;
+             color: #333;
+             border: 1px solid #555;
+             border-radius: 3px;
+             text-align: center;
+         }
+         #name-entry-section button {
+             font-family: 'Indie Flower', cursive; font-size: 1.0em; padding: 6px 15px;
+             margin-left: 10px; cursor: pointer; background-color: #8bc34a; /* Greenish */
+             color: #333; border: 1px solid #d8d8c8; border-radius: 5px;
+             transition: background-color 0.2s;
+         }
+         #name-entry-section button:hover { background-color: #9ccc65; }
+
+         /* Encouragement Message */
+         #encouragement-message {
+             font-size: 1.4em;
+             color: #ffeb3b; /* Yellow */
+             margin-top: 10px;
+             font-weight: bold;
+             text-shadow: 1px 1px 2px #000;
+         }
+
+         /* High Score List Styles (Inside Game Over Screen) */
+         #high-score-section { /* ... same width/margin ... */
+             width: 90%; max-width: 450px; /* Slightly wider */
+             margin-top: 15px; padding-top: 10px; border-top: 1px solid #777;
+             font-size: 0.9em;
+         }
+         #high-score-section h4 { margin-bottom: 8px; font-size: 1.3em; color: #eee; }
+         #high-score-list { list-style: none; padding: 0; margin: 0; text-align: left; }
+         #high-score-list li {
+             background-color: rgba(80, 90, 80, 0.6); padding: 4px 10px;
+             margin-bottom: 4px; border-radius: 3px; display: flex;
+             justify-content: space-between; font-size: 1.0em;
+             align-items: center; /* Align items vertically */
+         }
+         #high-score-list li span { display: inline-block; }
+         #high-score-list li .rank { min-width: 25px; font-weight: bold; }
+         /* Added Name column */
+         #high-score-list li .name { min-width: 70px; text-align: center; color: #ffcc80; }
+         #high-score-list li .score { min-width: 70px; text-align: right; }
+         #high-score-list li .date { font-size: 0.9em; color: #ccc; text-align: right; min-width: 80px; }
+
+
+         /* Restart Button */
+         #restart-button { /* Style moved from game-over-message button */
+             font-family: 'Indie Flower', cursive; font-size: 1.1em; padding: 12px 25px;
+             margin-top: 25px; cursor: pointer; background-color: #a0b0a0; color: #303a30;
+             border: 1px solid #d8d8c8; border-radius: 5px; transition: background-color 0.2s;
+         }
+          #restart-button:hover { background-color: #b0c0b0; }
+
+        .speed-line { /* ... same ... */ }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <canvas id="gameCanvas"></canvas>
+        <div id="canvas-score" class="canvas-ui-text">Score: 0</div>
+        <div id="canvas-time" class="canvas-ui-text">Time: 0:00</div>
+        <div id="interaction-text"></div>
+        <div id="canvas-boost" class="canvas-ui-text">BOOM</div>
+        <div id="game-over-screen">
+            <h2>Game Over!</h2>
+            <p>Final Score: <span id="final-score">0</span></p>
+
+            <div id="name-entry-section">
+                <label for="player-name">Enter Name (5 chars):</label>
+                <input type="text" id="player-name" maxlength="5" placeholder="?????">
+                <button id="submit-score-button">Save</button>
+            </div>
+
+            <p id="encouragement-message" style="display: none;"></p>
+
+            <div id="high-score-section" style="display: none;">
+                <h4>Top 5 Scores</h4>
+                <ol id="high-score-list"><li>Loading...</li></ol>
+            </div>
+
+            <button id="restart-button" style="display: none;">Restart</button>
+        </div>
+    </div>
+
+    <div class="ui-panel">
+         <p>Water: <span id="water-score">0</span> | Donuts: <span id="donut-score">0</span> | Speed: <span id="speed-display">1.0</span>x</p>
+        <p class="controls">Controls: [←][→] Move | [↑] Faster | [↓] Slower | [C] Interact</p>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const interactionTextElement = document.getElementById('interaction-text');
+        const gameOverScreenElement = document.getElementById('game-over-screen');
+        const finalScoreDisplay = document.getElementById('final-score');
+        const restartButton = document.getElementById('restart-button');
+        const boostTextElement = document.getElementById('canvas-boost');
+        const canvasScoreDisplay = document.getElementById('canvas-score');
+        const canvasTimeDisplay = document.getElementById('canvas-time');
+        const nameEntrySection = document.getElementById('name-entry-section');
+        const playerNameInput = document.getElementById('player-name');
+        const submitScoreButton = document.getElementById('submit-score-button');
+        const encouragementMessageElement = document.getElementById('encouragement-message');
+        const highScoreSection = document.getElementById('high-score-section'); // Section containing list
+
+        const waterScoreDisplay = document.getElementById('water-score');
+        const donutScoreDisplay = document.getElementById('donut-score');
+        const speedDisplay = document.getElementById('speed-display');
+        const highScoreListElement = document.getElementById('high-score-list');
+
+        let canvasWidth, canvasHeight;
+
+        // --- Game Settings --- (No changes)
+        const PLAYER_HORIZ_SPEED = 5.5; const PLAYER_WIDTH = 20; const PLAYER_HEIGHT = 45; const PLAYER_Y_POSITION_RATIO = 0.85;
+        const BASE_SCROLL_SPEED = 2.5; const MAX_SPEED_MULTIPLIER = 3.5; const MIN_SPEED_MULTIPLIER = 0.6; const SPEED_INCREMENT = 0.1;
+        const BOOST_SPEED_MULTIPLIER = 5.0; const BOOST_DURATION = 1.5; const BOOST_MESSAGE_DURATION = 0.5;
+        const COLLECTIBLE_SIZE = 25; const OBSTACLE_SIZE = 30; const ENEMY_SIZE = 28; const INTERACTION_RANGE = 50;
+        const OBJECT_SPAWN_RATE = 0.025; const MAX_OBJECTS = 35;
+        const SCORE_PER_SECOND = 1.3; const DONUT_SCORE_VALUE = 13; const SCORE_PER_PIXEL_SCROLLED = 0.05;
+        const ROAD_WIDTH_RATIO = 0.6; const VERGE_CHANGE_TIME = 20; const MAX_HIGH_SCORES = 5;
+
+        // --- Game State Variables --- (No changes)
+        let player; let gameObjects = []; let keys = {}; let waterCount = 0; let donutCount = 0; let currentScore = 0;
+        let currentSpeedMultiplier = 1.0; let effectiveSpeedMultiplier = 1.0; let interactionMessage = ""; let interactionTimer = 0;
+        let speedLines = []; let gameOver = false; let animationFrameId; let lastTimestamp = 0; let elapsedTime = 0;
+        let isBoosted = false; let boostTimer = 0; let boomMessageTimer = 0;
+        let currentVergeType = 'grass'; let vergeChangeTimer = VERGE_CHANGE_TIME; let roadLineOffset = 0;
+        let scoreToSave = 0; // Temporarily store score if waiting for name entry
+
+        // --- Local Storage Keys --- (No changes)
+        const HIGH_SCORES_ARRAY_KEY = 'lonelyCreatureHighScoresArray_v3';
+
+        // --- Encouragement Messages ---
+        const encouragementMessages = [
+            "Radical!", "Awesome!", "Tubular!", "Gnarly Score!", "Way Cool!",
+            "Bodacious!", "Righteous!", "Excellent!", "Whoa!", "Cowabunga!"
+        ];
+
+        // --- Player Object --- (No changes)
+        function createPlayer(x, y) { return { x: x, y: y, width: PLAYER_WIDTH, height: PLAYER_HEIGHT, color: '#bca0a0' }; }
+
+        // --- Game Object Creation --- (No changes)
+        function createGameObject() { /* ... */
+            const roll = Math.random(); let type; let specificType;
+            if (roll < 0.55) type = 'collectible'; else if (roll < 0.80) type = 'obstacle'; else type = 'enemy';
+            const size = (type === 'obstacle') ? OBSTACLE_SIZE : (type === 'enemy' ? ENEMY_SIZE : COLLECTIBLE_SIZE);
+            const spawnMargin = 5; const x = spawnMargin + Math.random() * (canvasWidth - size - 2 * spawnMargin); const y = -size;
+            let color; let data = {};
+            if (type === 'collectible') { specificType = Math.random() < 0.5 ? 'water' : 'donut'; color = specificType === 'water' ? '#60a0f0' : '#d0a060'; }
+            else if (type === 'obstacle') { specificType = 'rock'; color = '#706860'; }
+            else { specificType = Math.random() < 0.5 ? 'floater' : 'swooper'; color = specificType === 'floater' ? '#e060e0' : '#f0f060';
+                if (specificType === 'floater') { data.driftSpeed = (Math.random() - 0.5) * 2.5; data.verticalBob = Math.random() * Math.PI * 2; }
+                else { const targetY = player ? player.y : canvasHeight * PLAYER_Y_POSITION_RATIO; const timeToTargetApprox = Math.max(0.1, (targetY - y) / (BASE_SCROLL_SPEED * effectiveSpeedMultiplier * 1.2)); data.swoopTargetX = player ? player.x + player.width / 2 : canvasWidth / 2; data.swoopSpeedX = (data.swoopTargetX - (x + size/2)) / timeToTargetApprox; data.swoopSpeedY = BASE_SCROLL_SPEED * effectiveSpeedMultiplier * 1.2; }
+            }
+            return { x: x, y: y, size: size, type: specificType, category: type, active: true, color: color, data: data };
+        }
+
+
+        // --- Input Handling --- (Added submit button listener)
+        window.addEventListener('keydown', (e) => { keys[e.key.toLowerCase()] = true; if (["arrowup", "arrowdown", "arrowleft", "arrowright"].includes(e.key.toLowerCase())) e.preventDefault(); if (gameOver && e.key === 'Enter' && nameEntrySection.style.display === 'none') restartGame(); }); // Only allow Enter restart if name entry is done
+        window.addEventListener('keyup', (e) => { keys[e.key.toLowerCase()] = false; });
+        restartButton.addEventListener('click', restartGame);
+        submitScoreButton.addEventListener('click', handleSubmitScore); // Listener for submit button
+
+        // --- High Score Functions --- (Updated structure, display)
+        function loadHighScores() { /* ... same ... */ try { const scoresJSON = localStorage.getItem(HIGH_SCORES_ARRAY_KEY); return scoresJSON ? JSON.parse(scoresJSON) : []; } catch (e) { console.error("Error loading high scores:", e); return []; } }
+        function saveHighScores(scores) { /* ... same ... */ try { scores.sort((a, b) => b.score - a.score); const topScores = scores.slice(0, MAX_HIGH_SCORES); localStorage.setItem(HIGH_SCORES_ARRAY_KEY, JSON.stringify(topScores)); return topScores; } catch (e) { console.error("Error saving high scores:", e); return scores; } }
+
+        // Modified to accept name
+        function addHighScore(scoreValue, playerName) {
+            const scores = loadHighScores();
+            const newScoreEntry = {
+                score: Math.floor(scoreValue),
+                name: playerName || "?????", // Use provided name or default
+                date: new Date().toISOString().split('T')[0]
+            };
+            scores.push(newScoreEntry);
+            const updatedScores = saveHighScores(scores);
+            displayHighScores(updatedScores); // Update display
+        }
+
+        // Updated to display name
+        function displayHighScores(scores = null) {
+            if (scores === null) { scores = loadHighScores(); }
+            highScoreListElement.innerHTML = '';
+            if (scores.length === 0) { highScoreListElement.innerHTML = '<li>No scores yet!</li>'; return; }
+            scores.forEach((scoreEntry, index) => {
+                const li = document.createElement('li');
+                // Handle potential old scores without name field
+                const displayName = scoreEntry.name ? scoreEntry.name.substring(0, 5).toUpperCase() : "?????";
+                li.innerHTML = `
+                    <span class="rank">${index + 1}.</span>
+                    <span class="name">${displayName}</span>
+                    <span class="score">${scoreEntry.score}</span>
+                    <span class="date">${scoreEntry.date}</span>
+                `;
+                highScoreListElement.appendChild(li);
+            });
+        }
+
+
+        // --- Game Logic ---
+        function update(timestamp) { /* ... same core update logic ... */
+            if (gameOver) return;
+            if (!lastTimestamp) lastTimestamp = timestamp;
+            const deltaTime = Math.min((timestamp - lastTimestamp) / 1000.0, 0.05);
+            lastTimestamp = timestamp;
+            elapsedTime += deltaTime;
+            currentScore += SCORE_PER_SECOND * deltaTime;
+            currentScore += (BASE_SCROLL_SPEED * effectiveSpeedMultiplier) * SCORE_PER_PIXEL_SCROLLED;
+            canvasScoreDisplay.textContent = `Score: ${Math.floor(currentScore)}`;
+            const timeMinutes = Math.floor(elapsedTime / 60); const timeSeconds = Math.floor(elapsedTime % 60);
+            canvasTimeDisplay.textContent = `Time: ${timeMinutes}:${timeSeconds.toString().padStart(2, '0')}`;
+            if (!isBoosted) { if (keys['arrowup']) currentSpeedMultiplier = Math.min(MAX_SPEED_MULTIPLIER, currentSpeedMultiplier + SPEED_INCREMENT); if (keys['arrowdown']) currentSpeedMultiplier = Math.max(MIN_SPEED_MULTIPLIER, currentSpeedMultiplier - SPEED_INCREMENT); }
+            speedDisplay.textContent = currentSpeedMultiplier.toFixed(1);
+            if (boostTimer > 0) { boostTimer -= deltaTime; effectiveSpeedMultiplier = BOOST_SPEED_MULTIPLIER; if (boostTimer <= 0) isBoosted = false; } else { effectiveSpeedMultiplier = currentSpeedMultiplier; }
+            const currentScrollSpeed = BASE_SCROLL_SPEED * effectiveSpeedMultiplier;
+            if (keys['arrowleft']) player.x -= PLAYER_HORIZ_SPEED; if (keys['arrowright']) player.x += PLAYER_HORIZ_SPEED;
+            if (player.x < 0) player.x = 0; if (player.x + player.width > canvasWidth) player.x = canvasWidth - player.width;
+            vergeChangeTimer -= deltaTime; if (vergeChangeTimer <= 0) { vergeChangeTimer = VERGE_CHANGE_TIME; if (currentVergeType === 'grass') currentVergeType = 'desert'; else if (currentVergeType === 'desert') currentVergeType = 'ice'; else currentVergeType = 'grass'; }
+            roadLineOffset = (roadLineOffset + currentScrollSpeed) % 80;
+            if (Math.random() < OBJECT_SPAWN_RATE && gameObjects.length < MAX_OBJECTS) { gameObjects.push(createGameObject()); }
+            let canInteract = false; let interactTarget = null;
+            for (let i = gameObjects.length - 1; i >= 0; i--) {
+                const obj = gameObjects[i]; let objScrollSpeed = currentScrollSpeed;
+                if (obj.category === 'enemy') { if (obj.type === 'floater') { obj.x += obj.data.driftSpeed; obj.data.verticalBob += deltaTime * 4; obj.y += Math.sin(obj.data.verticalBob) * 0.5; if (obj.x < 0 || obj.x + obj.size > canvasWidth) { obj.data.driftSpeed *= -1; obj.x = Math.max(0, Math.min(obj.x, canvasWidth - obj.size)); } } else if (obj.type === 'swooper') { obj.x += obj.data.swoopSpeedX * deltaTime * 60; objScrollSpeed = obj.data.swoopSpeedY; } }
+                obj.y += objScrollSpeed;
+                if (obj.y > canvasHeight) { gameObjects.splice(i, 1); continue; }
+                if (obj.active && player.x < obj.x + obj.size && player.x + player.width > obj.x && player.y < obj.y + obj.size && player.y + player.height > obj.y) { if (obj.category === 'obstacle' || obj.category === 'enemy') { triggerGameOver(); return; } else { obj.active = false; if (obj.type === 'water') { waterCount++; waterScoreDisplay.textContent = waterCount; isBoosted = true; boostTimer = BOOST_DURATION; boomMessageTimer = BOOST_MESSAGE_DURATION; boostTextElement.style.display = 'block'; } else if (obj.type === 'donut') { donutCount++; donutScoreDisplay.textContent = donutCount; currentScore += DONUT_SCORE_VALUE; } gameObjects.splice(i, 1); continue; } }
+                if (obj.active && obj.category === 'collectible') { const dx = (player.x + player.width / 2) - (obj.x + obj.size / 2); const dy = (player.y + player.height / 2) - (obj.y + obj.size / 2); const distance = Math.sqrt(dx * dx + dy * dy); if (distance < INTERACTION_RANGE) { canInteract = true; interactTarget = obj; } }
+            }
+            if (keys['c'] && canInteract && interactTarget && interactionTimer <= 0) { interactionMessage = interactTarget.type === 'water' ? "*gulp... ENERGY!*" : "*sweet... points!*"; interactionTimer = 60; const canvasRect = canvas.getBoundingClientRect(); interactionTextElement.style.left = `${player.x}px`; interactionTextElement.style.top = `${player.y - 30}px`; interactionTextElement.textContent = interactionMessage; interactionTextElement.style.display = 'block'; }
+            if (interactionTimer > 0) { interactionTimer--; if (interactionTimer <= 0) interactionTextElement.style.display = 'none'; } else { interactionTextElement.style.display = 'none'; }
+            if (boomMessageTimer > 0) { boomMessageTimer -= deltaTime; if (boomMessageTimer <= 0) boostTextElement.style.display = 'none'; } else { boostTextElement.style.display = 'none'; }
+            speedLines = speedLines.filter(line => line.y < canvasHeight); if (effectiveSpeedMultiplier > 1.2) { const numLines = Math.floor((effectiveSpeedMultiplier - 1) * 6); for (let i = 0; i < numLines; i++) { if (Math.random() < 0.6) { speedLines.push({ x: Math.random() * canvasWidth, y: -Math.random() * 20, height: 20 + Math.random() * 40, speed: currentScrollSpeed * (1.1 + Math.random() * 0.6) }); } } }
+            speedLines.forEach(line => { line.y += (BASE_SCROLL_SPEED * effectiveSpeedMultiplier) * (1.1 + Math.random() * 0.6) * deltaTime * 60; });
+        }
+
+
+        // --- Game Over Logic --- (Updated Flow)
+        function triggerGameOver() {
+            if (gameOver) return;
+            gameOver = true;
+            keys = {}; isBoosted = false; boostTimer = 0; boomMessageTimer = 0;
+            boostTextElement.style.display = 'none';
+            cancelAnimationFrame(animationFrameId); // Stop the game loop
+
+            scoreToSave = Math.floor(currentScore); // Store final score
+            finalScoreDisplay.textContent = scoreToSave; // Show final score immediately
+
+            // Check if score qualifies for high score list
+            const highScores = loadHighScores();
+            const lowestHighScore = highScores.length < MAX_HIGH_SCORES ? 0 : highScores[MAX_HIGH_SCORES - 1].score;
+
+            if (scoreToSave > lowestHighScore) {
+                // Show name entry section, hide others initially
+                nameEntrySection.style.display = 'block';
+                highScoreSection.style.display = 'none';
+                restartButton.style.display = 'none';
+                encouragementMessageElement.style.display = 'none';
+                playerNameInput.value = ''; // Clear input field
+                playerNameInput.focus(); // Focus input field
+            } else {
+                // Score doesn't qualify, show standard game over directly
+                showFinalGameOverScreen();
+            }
+
+            gameOverScreenElement.style.display = 'flex'; // Show the overlay
+        }
+
+        // Function called after name entry OR if score didn't qualify
+        function showFinalGameOverScreen() {
+            nameEntrySection.style.display = 'none'; // Hide name entry
+
+            // Select and show random encouragement
+            const randomMessage = encouragementMessages[Math.floor(Math.random() * encouragementMessages.length)];
+            encouragementMessageElement.textContent = randomMessage;
+            encouragementMessageElement.style.display = 'block';
+
+            // Display the high score list and restart button
+            displayHighScores(); // Ensure list is up-to-date
+            highScoreSection.style.display = 'block';
+            restartButton.style.display = 'block';
+        }
+
+        // Function called when submit score button is clicked
+        function handleSubmitScore() {
+            let playerName = playerNameInput.value.trim().substring(0, 5) || "?????";
+            playerName = playerName.toUpperCase(); // Convert to uppercase
+
+            addHighScore(scoreToSave, playerName); // Save score with name
+            showFinalGameOverScreen(); // Show the final game over screen elements
+        }
+
+
+        // --- Drawing --- (No changes needed)
+        function draw() { /* ... */
+            let vergeColor; if (currentVergeType === 'grass') vergeColor = '#8a9a8a'; else if (currentVergeType === 'desert') vergeColor = '#d2b48c'; else vergeColor = '#e0f8f8'; ctx.fillStyle = vergeColor; ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+            const roadWidth = canvasWidth * ROAD_WIDTH_RATIO; const roadX = (canvasWidth - roadWidth) / 2; ctx.fillStyle = '#666'; ctx.fillRect(roadX, 0, roadWidth, canvasHeight);
+            ctx.strokeStyle = '#eee'; ctx.lineWidth = 5; ctx.setLineDash([40, 40]); ctx.lineDashOffset = -roadLineOffset; ctx.beginPath(); ctx.moveTo(canvasWidth / 2, 0); ctx.lineTo(canvasWidth / 2, canvasHeight); ctx.stroke(); ctx.setLineDash([]);
+            ctx.strokeStyle = 'rgba(200, 200, 200, 0.4)'; ctx.lineWidth = Math.max(1, effectiveSpeedMultiplier * 0.8); speedLines.forEach(line => { ctx.beginPath(); ctx.moveTo(line.x, line.y); ctx.lineTo(line.x, line.y + line.height); ctx.stroke(); });
+            gameObjects.forEach(obj => { if (obj.active || obj.category === 'obstacle' || obj.category === 'enemy') { ctx.fillStyle = obj.color; if (obj.type === 'water') { ctx.beginPath(); ctx.ellipse(obj.x + obj.size / 2, obj.y + obj.size / 2, obj.size / 2, obj.size / 2.5, 0, 0, Math.PI * 2); ctx.fill(); } else if (obj.type === 'donut') { ctx.beginPath(); ctx.arc(obj.x + obj.size / 2, obj.y + obj.size / 2, obj.size / 2, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#666'; ctx.beginPath(); ctx.arc(obj.x + obj.size / 2, obj.y + obj.size / 2, obj.size / 5, 0, Math.PI * 2); ctx.fill(); } else if (obj.type === 'rock') { ctx.beginPath(); ctx.moveTo(obj.x + obj.size * 0.2, obj.y); ctx.lineTo(obj.x + obj.size * 0.8, obj.y + obj.size * 0.1); ctx.lineTo(obj.x + obj.size, obj.y + obj.size * 0.7); ctx.lineTo(obj.x + obj.size * 0.5, obj.y + obj.size); ctx.lineTo(obj.x, obj.y + obj.size * 0.6); ctx.closePath(); ctx.fill(); ctx.strokeStyle = '#403830'; ctx.lineWidth = 1; ctx.stroke(); } else if (obj.type === 'floater') { const pulseSize = obj.size * (0.8 + Math.sin(elapsedTime * 5 + obj.x) * 0.2); ctx.beginPath(); ctx.arc(obj.x + obj.size / 2, obj.y + obj.size / 2, pulseSize / 2, 0, Math.PI * 2); ctx.fill(); } else if (obj.type === 'swooper') { ctx.beginPath(); ctx.moveTo(obj.x, obj.y); ctx.lineTo(obj.x + obj.size, obj.y + obj.size / 2); ctx.lineTo(obj.x, obj.y + obj.size); ctx.lineTo(obj.x + obj.size / 3, obj.y + obj.size / 2); ctx.closePath(); ctx.fill(); } } });
+            ctx.fillStyle = player.color; const bodyX = player.x + player.width / 2; ctx.beginPath(); ctx.moveTo(bodyX - player.width / 2, player.y + player.height); ctx.lineTo(bodyX - player.width / 2.5, player.y + player.height * 0.1); ctx.lineTo(bodyX + player.width / 2.5, player.y); ctx.lineTo(bodyX + player.width / 2, player.y + player.height * 0.9); ctx.closePath(); ctx.fill(); ctx.fillStyle = '#444'; ctx.beginPath(); ctx.arc(bodyX + player.width * 0.1, player.y + player.height * 0.2, 2.5, 0, Math.PI * 2); ctx.fill();
+            // On-canvas score/time are DOM elements now
+        }
+
+        // --- Game Loop --- (No changes)
+        function gameLoop(timestamp) { if (!gameOver) { update(timestamp); } draw(); if (!gameOver) { animationFrameId = requestAnimationFrame(gameLoop); } }
+
+        // --- Initialization --- (No changes)
+        function resizeCanvas() { /* ... */ const viewportWidth = window.innerWidth; const viewportHeight = window.innerHeight; const uiPanel = document.querySelector('.ui-panel'); const uiHeight = uiPanel ? uiPanel.offsetHeight : 50; const availableHeight = viewportHeight - uiHeight - 40; let potentialHeight = availableHeight; let potentialWidth = potentialHeight * (9 / 16); if (potentialWidth > viewportWidth * 0.95) { potentialWidth = viewportWidth * 0.95; potentialHeight = potentialWidth * (16 / 9); if (potentialHeight > availableHeight) { potentialHeight = availableHeight; potentialWidth = potentialHeight * (9/16); } } canvas.height = Math.max(300, Math.floor(potentialHeight)); canvas.width = Math.floor(canvas.height * (9/16)); canvasWidth = canvas.width; canvasHeight = canvas.height; positionAbsoluteElements(); }
+        function positionAbsoluteElements() { /* ... */ const canvasRect = canvas.getBoundingClientRect(); interactionTextElement.style.position = 'absolute'; boostTextElement.style.position = 'absolute'; const scoreEl = document.getElementById('canvas-score'); const timeEl = document.getElementById('canvas-time'); if (scoreEl) scoreEl.style.position = 'absolute'; if (timeEl) timeEl.style.position = 'absolute'; }
+
+        function initializeLevel() {
+            gameOver = false; waterCount = 0; donutCount = 0; currentScore = 0;
+            elapsedTime = 0; lastTimestamp = 0;
+            currentSpeedMultiplier = 1.0; effectiveSpeedMultiplier = 1.0;
+            isBoosted = false; boostTimer = 0; boomMessageTimer = 0;
+            interactionTimer = 0;
+            gameObjects = []; speedLines = []; keys = {};
+            currentVergeType = 'grass'; vergeChangeTimer = VERGE_CHANGE_TIME; roadLineOffset = 0;
+
+            displayHighScores(); // Populate list in hidden overlay
+
+            waterScoreDisplay.textContent = waterCount; donutScoreDisplay.textContent = donutCount;
+            speedDisplay.textContent = currentSpeedMultiplier.toFixed(1);
+            interactionTextElement.style.display = 'none';
+            gameOverScreenElement.style.display = 'none'; // Hide game over screen
+            boostTextElement.style.display = 'none';
+            canvasScoreDisplay.textContent = `Score: 0`;
+            canvasTimeDisplay.textContent = `Time: 0:00`;
+
+            const playerY = canvasHeight * PLAYER_Y_POSITION_RATIO - PLAYER_HEIGHT / 2;
+            player = createPlayer(canvasWidth / 2 - PLAYER_WIDTH / 2, playerY);
+        }
+
+         function restartGame() {
+             cancelAnimationFrame(animationFrameId);
+             initializeLevel();
+             requestAnimationFrame(gameLoop);
+         }
+
+        // --- Start Game ---
+        window.addEventListener('resize', () => { resizeCanvas(); if (!gameOver) draw(); });
+        window.onload = () => { resizeCanvas(); initializeLevel(); requestAnimationFrame(gameLoop); };
+
+    </script>
+
+</body>
+</html>
